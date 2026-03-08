@@ -4,85 +4,71 @@ class Chatbox {
             openButton: document.querySelector('.chatbox__button'),
             chatBox: document.querySelector('.chatbox__support'),
             sendButton: document.querySelector('.send__button')
-        }
-
+        };
         this.state = false;
         this.messages = [];
     }
-    
-    display() {
-        const {openButton, chatBox, sendButton} = this.args;
 
-        openButton.addEventListener('click', () => this.toggleState(chatBox))
-        sendButton.addEventListener('click', () => this.onSendButton(chatBox))
+    display() {
+        const { openButton, chatBox, sendButton } = this.args;
+
+        openButton.addEventListener('click', () => this.toggleState(chatBox));
+        sendButton.addEventListener('click', () => this.onSendButton(chatBox));
 
         const node = chatBox.querySelector('input');
-        node.addEventListener("keyup", ({key}) => {
-            if (key === "Enter") {
-                this.onSendButton(chatBox)
+        node.addEventListener('keyup', ({ key }) => {
+            if (key === 'Enter') {
+                this.onSendButton(chatBox);
             }
-        })
+        });
     }
 
     toggleState(chatbox) {
         this.state = !this.state;
-
-        // show or hides the box
-        if(this.state) {
-            chatbox.classList.add('chatbox--active')
-        } else {
-            chatbox.classList.remove('chatbox--active')
-        }
+        chatbox.classList.toggle('chatbox--active', this.state);
     }
 
     onSendButton(chatbox) {
-        var textField = chatbox.querySelector('input');
-        let text1 = textField.value
-        if (text1 === "") {
-            return;
-        }
+        const textField = chatbox.querySelector('input');
+        const text = textField.value.trim();
+        if (!text) return;
 
-        let msg1 = { name: "User", message: text1 } // object
-        this.messages.push(msg1);
+        const userMsg = { name: 'User', message: text };
+        this.messages.push(userMsg);
+        this.updateChatText(chatbox);
+        textField.value = '';
 
-        // 'http://127.0.0.1:5000/predict'
-        fetch($SCRIPT_ROOT + "/predict", {
+        // Uses $SCRIPT_ROOT set by the Jinja2 template (Flask deployment)
+        fetch($SCRIPT_ROOT + '/predict', {
             method: 'POST',
-            body: JSON.stringify({ message: text1 }),
+            body: JSON.stringify({ message: text }),
             mode: 'cors',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-          })
-          .then(r => r.json())
-          .then(r => {
-            let msg2 = { name: "Smith", message: r.answer };
-            this.messages.push(msg2);
-            this.updateChatText(chatbox)
-            textField.value = ''
-
-        }).catch((error) => {
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(r => {
+            const botMsg = { name: 'Smith', message: r.answer };
+            this.messages.push(botMsg);
+            this.updateChatText(chatbox);
+        })
+        .catch(error => {
             console.error('Error:', error);
-            this.updateChatText(chatbox)
-            textField.value = ''
-          });
+            const errMsg = { name: 'Smith', message: 'Sorry, I could not reach the server. Please try again.' };
+            this.messages.push(errMsg);
+            this.updateChatText(chatbox);
+        });
     }
 
     updateChatText(chatbox) {
-        var html = '';
-        this.messages.slice().reverse().forEach(function(item, index) {
-            if (item.name === "Smith")
-            {
-                html += '<div class="messages__item messages__item--visitor">' + item.message + '</div>'
+        let html = '';
+        this.messages.slice().reverse().forEach(item => {
+            if (item.name === 'Smith') {
+                html += `<div class="messages__item messages__item--visitor">${item.message}</div>`;
+            } else {
+                html += `<div class="messages__item messages__item--operator">${item.message}</div>`;
             }
-            else
-            {
-                html += '<div class="messages__item messages__item--operator">' + item.message + '</div>'
-            }
-          });
-
-        const chatmessage = chatbox.querySelector('.chatbox__messages');
-        chatmessage.innerHTML = html;
+        });
+        chatbox.querySelector('.chatbox__messages').innerHTML = html;
     }
 }
 

@@ -1,5 +1,6 @@
 import random
 import json
+import os
 
 import torch
 
@@ -8,11 +9,16 @@ from nltk_utils import bag_of_words, tokenize
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-with open('data/intents.json', 'r') as json_data:
+# Resolve paths relative to this file's location
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+intents_path = os.path.join(BASE_DIR, 'data', 'intents.json')
+model_path = os.path.join(BASE_DIR, 'data', 'data.pth')
+
+with open(intents_path, 'r') as json_data:
     intents = json.load(json_data)
 
-FILE = "data.pth"
-data = torch.load(FILE)
+# FIX: was "data.pth" — caused FileNotFoundError if run from outside backend/
+data = torch.load(model_path, map_location=device)
 
 input_size = data["input_size"]
 hidden_size = data["hidden_size"]
@@ -35,32 +41,30 @@ def get_response(msg):
 
     output = model(X)
     _, predicted = torch.max(output, dim=1)
-
     tag = tags[predicted.item()]
 
     probs = torch.softmax(output, dim=1)
     prob = probs[0][predicted.item()]
+
     if prob.item() > 0.75:
         for intent in intents['intents']:
             if tag == intent["tag"]:
                 return random.choice(intent['responses'])
-    
-    # Fallback: Provide guidance on available topics
+
+    # Fallback with helpful guidance
     available_topics = [intent["tag"] for intent in intents['intents']]
-    guidance = f'''I'm sorry, I didn't understand that. 
-    Here are some topics I can help with: {', '.join(available_topics)}. 
-    Please rephrase your question or choose a topic.'''
-    return guidance
+    return (
+        f"I'm sorry, I didn't quite understand that. "
+        f"I can help with topics like: {', '.join(available_topics)}. "
+        f"Please try rephrasing your question!"
+    )
 
 
 if __name__ == "__main__":
     print("Let's chat! (type 'quit' to exit)")
     while True:
-        # sentence = "do you use credit cards?"
         sentence = input("You: ")
         if sentence == "quit":
             break
-
         resp = get_response(sentence)
-        print(resp)
-
+        print(f"{bot_name}: {resp}")
